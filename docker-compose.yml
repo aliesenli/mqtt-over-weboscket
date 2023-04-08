@@ -1,0 +1,13 @@
+version: "1"
+services:
+  emqx:
+    image: emqx/emqx
+    container_name: emqx
+    ports:
+      - "1883:1883" # MQTT port
+      - "8883:8883" # MQTT with TLS/SSL port
+      - "8083:8083" # MQTT WebSocket port
+      - "18083:18083" # EMQX Dashboard port
+    # volumes:
+    #   - ./data/emqx:/var/lib/emqx
+    restart: always
