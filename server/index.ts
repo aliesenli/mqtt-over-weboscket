@@ -2,12 +2,12 @@ const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
 const moment = require("moment");
-const path = require("path");
 const mqtt = require("mqtt");
 const { SerialPort } = require("serialport");
 const { ReadlineParser } = require("@serialport/parser-readline");
 
 app.use(express.static("client"));
+app.use(express.static("dist"));
 
 const webserverPort = 3000;
 const mqttBrokerUrl = "mqtt://localhost:1883";
@@ -20,7 +20,7 @@ interface ISensorData {
 }
 
 interface ISerialPortPublisher {
-  path: string;
+  serialPath: string;
   baudrate: number;
   parserEnabled: boolean;
 }
@@ -40,19 +40,19 @@ const sensorTypes: Record<string, (data: string) => ISensorData> = {
 };
 
 class SerialPortPublisher implements ISerialPortPublisher {
-  path: string;
+  serialPath: string;
   baudrate: number;
   parserEnabled: boolean;
 
   constructor(path: string, baudrate: number, parserEnabled: boolean) {
-    this.path = path;
+    this.serialPath = path;
     this.baudrate = baudrate;
     this.parserEnabled = parserEnabled;
   }
 
   setup(): void {
     let serialClient = new SerialPort({
-      path: this.path,
+      path: this.serialPath,
       baudRate: this.baudrate,
     });
 

@@ -63,7 +63,7 @@ class SensorMqttConnection extends MqttConnection {
 }
 
 const mqttConnection = new SensorMqttConnection(
-  "My very first connection",
+  "My very first connection over websocket",
   "ws://localhost:8083/mqtt"
 );
 
