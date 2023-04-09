@@ -10,7 +10,7 @@ app.use(express.static("client"));
 app.use(express.static("dist"));
 
 const webserverPort = 3000;
-const mqttBrokerUrl = "mqtt://localhost:1883";
+const mqttBrokerUrl = "mqtt://myemqxbroker:1883";
 const mqttClient = mqtt.connect(mqttBrokerUrl);
 
 interface ISensorData {
@@ -83,7 +83,7 @@ function emitSensorData(data: string) {
   }
 }
 
-const publisher = new SerialPortPublisher("COM3", 9600, true);
+const publisher = new SerialPortPublisher("/dev/ttyACM0", 9600, true);
 publisher.setup();
 
 mqttClient.on("connect", () => {
