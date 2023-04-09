@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node server/index.ts",
-    "build": "tsc ./client/index.ts && webpack"
+    "build": "tsc ./client/index.ts && tsc ./server/index.ts && webpack"
   },
   "author": "Ali Riza Esenli",
   "license": "ISC",

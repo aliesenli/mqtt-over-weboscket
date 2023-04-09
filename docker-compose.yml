@@ -1,13 +1,25 @@
-version: "1"
+version: "3"
+
 services:
+  expressapp:
+    build: .
+    container_name: myexpressapp
+    volumes:
+      - /dev/ttyACM0:/dev/ttyACM0
+    devices:
+      - /dev/ttyACM0:/dev/ttyACM0
+    ports:
+      - "3000:3000"
+    privileged: true
+    depends_on:
+      - emqx
+
   emqx:
     image: emqx/emqx
-    container_name: emqx
+    container_name: myemqxbroker
     ports:
-      - "1883:1883" # MQTT port
-      - "8883:8883" # MQTT with TLS/SSL port
-      - "8083:8083" # MQTT WebSocket port
-      - "18083:18083" # EMQX Dashboard port
-    # volumes:
-    #   - ./data/emqx:/var/lib/emqx
-    restart: always
+      - "1883:1883"
+      - "8083:8083"
+      - "8883:8883"
+      - "8084:8084"
+      - "18083:18083"
