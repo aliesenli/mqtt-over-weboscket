@@ -1,4 +1,4 @@
-# mqttemperature
+# mqttoverwebsocket
 
 ### Simple IoT project - Pub/Sub to MQTT broker over Websocket and some charting 
 <img src="https://github.com/aliesenli/mqttemperature/blob/main/doc/chart.png">
