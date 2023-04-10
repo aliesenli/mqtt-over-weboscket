@@ -9,13 +9,12 @@ var chart = new ApexCharts(
 
 chart.render();
 
-interface IMqttConnection {
-  name: string;
-  createdAt: string;
-  client: MqttClient;
+interface IMqttConnectionHandler {
+  handleTopicSubscriptions(): void;
+  handleSensorData(): void;
 }
 
-abstract class MqttConnection implements IMqttConnection {
+abstract class MqttConnection {
   name: string;
   createdAt: string;
   client: MqttClient;
@@ -27,14 +26,40 @@ abstract class MqttConnection implements IMqttConnection {
   }
 }
 
-class SensorMqttConnection extends MqttConnection {
+class HumidityMqttConnection
+  extends MqttConnection
+  implements IMqttConnectionHandler
+{
   handleTopicSubscriptions(): void {
-    this.client.subscribe("sensor/temperature");
     this.client.subscribe("sensor/humidity");
   }
-
   handleSensorData(): void {
     const humidityData: any = [];
+
+    this.client.on(
+      "message",
+      (topic: string, _message: Buffer, packet: IPublishPacket) => {
+        console.log(`${topic} ${packet.payload}`);
+
+        humidityData.push([
+          JSON.parse(packet.payload.toString("utf-8")).timestamp,
+          Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
+        ]);
+
+        chart.updateSeries([{ data: humidityData }]);
+      }
+    );
+  }
+}
+
+class TemperatureMqttConnection
+  extends MqttConnection
+  implements IMqttConnectionHandler
+{
+  handleTopicSubscriptions(): void {
+    this.client.subscribe("sensor/temperature");
+  }
+  handleSensorData(): void {
     const temperatureData: any = [];
 
     this.client.on(
@@ -42,30 +67,32 @@ class SensorMqttConnection extends MqttConnection {
       (topic: string, _message: Buffer, packet: IPublishPacket) => {
         console.log(`${topic} ${packet.payload}`);
 
-        if (topic === "sensor/humidity") {
-          humidityData.push([
-            JSON.parse(packet.payload.toString("utf-8")).timestamp,
-            Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
-          ]);
-        }
+        temperatureData.push([
+          JSON.parse(packet.payload.toString("utf-8")).timestamp,
+          Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
+        ]);
 
-        if (topic === "sensor/temperature") {
-          temperatureData.push([
-            JSON.parse(packet.payload.toString("utf-8")).timestamp,
-            Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
-          ]);
-        }
-
-        chart.updateSeries([{ data: humidityData }, { data: temperatureData }]);
+        chart.updateSeries([{ data: temperatureData }]);
       }
     );
   }
 }
 
-const mqttConnection = new SensorMqttConnection(
-  "My very first connection over websocket",
+const humidityConnection = new HumidityMqttConnection(
+  "My Humidity Data over Websocket",
   "ws://localhost:8083/mqtt"
 );
 
-mqttConnection.handleTopicSubscriptions();
-mqttConnection.handleSensorData();
+const temperatureConnection = new TemperatureMqttConnection(
+  "My Temperature Data over Websocket",
+  "ws://localhost:8083/mqtt"
+);
+
+const connectionList: IMqttConnectionHandler[] = [];
+connectionList.push(humidityConnection);
+connectionList.push(temperatureConnection);
+
+connectionList.forEach((connection) => {
+  connection.handleTopicSubscriptions();
+  connection.handleSensorData();
+});
