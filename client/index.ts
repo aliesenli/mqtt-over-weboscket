@@ -1,40 +1,66 @@
 import { IPublishPacket, MqttClient, connect as mqttConnect } from "mqtt";
 import * as ApexCharts from "apexcharts";
-import { chartSettings } from "./settings/chartsettings";
+import { temperatureSettings } from "./settings/temperature";
+import { humiditySettings } from "./settings/humidity";
 
-var chart = new ApexCharts(
-  document.querySelector("#temperatureChart"),
-  chartSettings
-);
-
-chart.render();
-
-interface IMqttConnection {
-  name: string;
-  createdAt: string;
-  client: MqttClient;
+interface IMqttConnectionHandler {
+  handleTopicSubscriptions(): void;
+  handleSensorData(): void;
 }
 
-abstract class MqttConnection implements IMqttConnection {
+abstract class MqttConnection {
   name: string;
   createdAt: string;
   client: MqttClient;
+  chart: ApexCharts;
 
-  constructor(connectionName: string, websocketUrl: string) {
+  constructor(connectionName: string, websocketUrl: string, chart: ApexCharts) {
     this.name = connectionName;
     this.createdAt = new Date().toUTCString();
     this.client = mqttConnect(websocketUrl);
+    this.chart = chart;
+  }
+
+  renderChart() {
+    this.chart.render();
   }
 }
 
-class SensorMqttConnection extends MqttConnection {
+class HumidityMqttConnection extends MqttConnection 
+  implements IMqttConnectionHandler
+{
   handleTopicSubscriptions(): void {
-    this.client.subscribe("sensor/temperature");
     this.client.subscribe("sensor/humidity");
   }
 
   handleSensorData(): void {
     const humidityData: any = [];
+
+    this.client.on(
+      "message",
+      (topic: string, _message: Buffer, packet: IPublishPacket) => {
+        console.log(`${topic} ${packet.payload}`);
+
+        humidityData.push([
+          JSON.parse(packet.payload.toString("utf-8")).timestamp,
+          Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
+        ]);
+
+        this.chart.updateSeries([{ data: humidityData}])
+      }
+    );
+  }
+}
+
+class TemperatureMqttConnection
+  extends MqttConnection
+  implements IMqttConnectionHandler
+{
+  handleTopicSubscriptions(): void {
+    this.client.subscribe("sensor/temperature");
+  }
+
+  handleSensorData(): void {
     const temperatureData: any = [];
 
     this.client.on(
@@ -42,30 +68,37 @@ class SensorMqttConnection extends MqttConnection {
       (topic: string, _message: Buffer, packet: IPublishPacket) => {
         console.log(`${topic} ${packet.payload}`);
 
-        if (topic === "sensor/humidity") {
-          humidityData.push([
-            JSON.parse(packet.payload.toString("utf-8")).timestamp,
-            Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
-          ]);
-        }
+        temperatureData.push([
+          JSON.parse(packet.payload.toString("utf-8")).timestamp,
+          Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
+        ]);
 
-        if (topic === "sensor/temperature") {
-          temperatureData.push([
-            JSON.parse(packet.payload.toString("utf-8")).timestamp,
-            Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
-          ]);
-        }
-
-        chart.updateSeries([{ data: humidityData }, { data: temperatureData }]);
-      }
+        this.chart.updateSeries([{ data: temperatureData}])
+      } 
     );
   }
 }
 
-const mqttConnection = new SensorMqttConnection(
-  "My very first connection over websocket",
-  "ws://localhost:8083/mqtt"
+const humidityConnection = new HumidityMqttConnection(
+  "My Humidity Data over Websocket",
+  "ws://localhost:8083/mqtt",
+  new ApexCharts(document.querySelector("#humidityChart"), humiditySettings)
 );
 
-mqttConnection.handleTopicSubscriptions();
-mqttConnection.handleSensorData();
+const temperatureConnection = new TemperatureMqttConnection(
+  "My Temperature Data over Websocket",
+  "ws://localhost:8083/mqtt",
+  new ApexCharts(document.querySelector("#temperatureChart"), temperatureSettings)
+);
+
+humidityConnection.renderChart();
+temperatureConnection.renderChart();
+
+const nodes: IMqttConnectionHandler[] = [];
+nodes.push(humidityConnection);
+nodes.push(temperatureConnection);
+
+nodes.forEach((connection) => {
+  connection.handleTopicSubscriptions();
+  connection.handleSensorData();
+});
