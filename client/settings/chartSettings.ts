@@ -1,11 +1,11 @@
 export const chartSettings = {
   series: [
     {
-      name: "Humidity",
+      name: "Temperature",
       data: [0],
     },
     {
-      name: "Temperature",
+      name: "Humidity",
       data: [0]
     }
   ],
