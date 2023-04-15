@@ -6,11 +6,6 @@
     <link rel="shortcut icon" href="#" />
     <title>MQTT Sensor data over Websocket</title>
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
-    <style>
-        body {
-            padding-top: 50px;
-        }
-    </style>
 </head>
 
 <body>
@@ -19,9 +14,16 @@
             <h2>MQTT Sensor data over Websocket</h2>
             <div id="sensorChart" />
         </div>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="temperatureSubscription" checked>
+            <label class="form-check-label" for="temperatureSubscription">Subscribe to temperature topic (sensor/temperature)</label>
+        </div>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="humiditySubscription" checked>
+            <label class="form-check-label" for="humiditySubscription">Subscribe to humidity topic (sensor/humidity)</label>
+        </div>
     </div>
 
 </body>
 <script type="module" src="/bundle.js"></script>
-
 </html>
