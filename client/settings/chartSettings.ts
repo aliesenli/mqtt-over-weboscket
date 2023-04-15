@@ -1,9 +1,13 @@
-export const temperatureSettings = {
+export const chartSettings = {
   series: [
     {
-      name: "Temperature",
+      name: "Humidity",
       data: [0],
     },
+    {
+      name: "Temperature",
+      data: [0]
+    }
   ],
   chart: {
     height: 350,
