@@ -3,8 +3,8 @@ import * as ApexCharts from "apexcharts";
 import { chartSettings } from "./settings/chartSettings";
 
 interface IMqttConnectionHandler {
-  handleTopicSubscriptions(): void;
   handleSensorData(): void;
+  subscribeAllTopics(): void;
   renderChart(): void;
 }
 
@@ -15,10 +15,10 @@ interface ISensorData {
 }
 
 abstract class MqttConnection implements IMqttConnectionHandler {
-  name: string;
-  createdAt: string;
-  mqttClient: MqttClient;
-  chart: ApexCharts;
+  public name: string;
+  public createdAt: string;
+  public mqttClient: MqttClient;
+  public chart: ApexCharts;
 
   constructor(connectionName: string, websocketUrl: string, chart: ApexCharts) {
     this.name = connectionName;
@@ -27,7 +27,10 @@ abstract class MqttConnection implements IMqttConnectionHandler {
     this.chart = chart;
   }
 
-  abstract handleTopicSubscriptions(): void;
+  public subscribeAllTopics(): void {
+    this.mqttClient.subscribe("sensor/temperature")
+    this.mqttClient.subscribe("sensor/humidity")
+  }
 
   public handleSensorData(): void {
     const sensorData: ISensorData[][] = [[], []];
@@ -81,9 +84,20 @@ abstract class MqttConnection implements IMqttConnectionHandler {
 }
 
 class CustomMqttConnection extends MqttConnection {
-  handleTopicSubscriptions(): void {
-    this.mqttClient.subscribe("sensor/humidity");
-    this.mqttClient.subscribe("sensor/temperature");
+  subscribeTemperatureTopic(): void {
+    this.mqttClient.subscribe("sensor/temperature")
+  }
+
+  unsubscribeTemperatureTopic(): void {
+    this.mqttClient.unsubscribe("sensor/temperature")
+  }
+
+  subscribeHumiditiyTopic(): void {
+    this.mqttClient.subscribe("sensor/humidity")
+  }
+
+  unsubscribeHumiditiyTopic(): void {
+    this.mqttClient.unsubscribe("sensor/humidity")
   }
 }
 
@@ -98,6 +112,26 @@ connection.push(customConnection);
 
 connection.forEach((conn) => {
   conn.renderChart();
-  conn.handleTopicSubscriptions();
+  conn.subscribeAllTopics();
   conn.handleSensorData();
 });
+
+const temperatureSubBox = document.getElementById('temperatureSubscription');
+temperatureSubBox?.addEventListener('change', (e: Event) => {
+  const event = e.target as HTMLInputElement
+  if (event.checked) {
+    customConnection.subscribeTemperatureTopic();
+  } else {
+    customConnection.unsubscribeTemperatureTopic();
+  }
+})
+
+const humiditySubBox = document.getElementById('humiditySubscription');
+humiditySubBox?.addEventListener('change', (e: Event) => {
+  const event = e.target as HTMLInputElement
+  if (event.checked) {
+    customConnection.subscribeHumiditiyTopic();
+  } else {
+    customConnection.unsubscribeHumiditiyTopic();
+  }
+})
