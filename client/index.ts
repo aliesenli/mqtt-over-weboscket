@@ -1,7 +1,6 @@
 import { IPublishPacket, MqttClient, connect as mqttConnect } from "mqtt";
 import * as ApexCharts from "apexcharts";
-import { temperatureSettings } from "./settings/temperature";
-import { humiditySettings } from "./settings/humidity";
+import { chartSettings } from "./settings/chartSettings";
 
 interface IMqttConnectionHandler {
   handleTopicSubscriptions(): void;
@@ -31,26 +30,46 @@ abstract class MqttConnection implements IMqttConnectionHandler {
   abstract handleTopicSubscriptions(): void;
 
   public handleSensorData(): void {
-    const data: ISensorData[] = [];
+    const sensorData: ISensorData[][] = [[], []];
 
     this.mqttClient.on(
       "message",
       (topic: string, _message: Buffer, packet: IPublishPacket) => {
         console.log(`${topic} ${packet.payload}`);
 
-        data.push({
-          type: JSON.parse(packet.payload.toString("utf-8")).type,
-          timestamp: JSON.parse(packet.payload.toString("utf-8")).timestamp,
-          value: Math.floor(JSON.parse(packet.payload.toString("utf-8")).value),
-        });
+        switch (topic) {
+          case 'sensor/temperature':
+            sensorData[0].push({
+              type: JSON.parse(packet.payload.toString("utf-8")).type,
+              timestamp: JSON.parse(packet.payload.toString("utf-8")).timestamp,
+              value: Math.floor(JSON.parse(packet.payload.toString("utf-8")).value)
+            })
+
+            break;
+
+          case 'sensor/humidity':
+            sensorData[1].push({
+              type: JSON.parse(packet.payload.toString("utf-8")).type,
+              timestamp: JSON.parse(packet.payload.toString("utf-8")).timestamp,
+              value: Math.floor(JSON.parse(packet.payload.toString("utf-8")).value)
+            })
+
+            break;
+        }
 
         this.chart.updateSeries([
           {
-            data: data.map((item) => ({
+            data: sensorData[0].map((item) => ({
               x: item.timestamp,
-              y: item.value,
-            })),
+              y: item.value
+            }))
           },
+          {
+            data: sensorData[1].map((item) => ({
+              x: item.timestamp,
+              y: item.value
+            }))
+          }
         ]);
       }
     );
@@ -61,36 +80,21 @@ abstract class MqttConnection implements IMqttConnectionHandler {
   }
 }
 
-class HumidityMqttConnection extends MqttConnection {
+class CustomMqttConnection extends MqttConnection {
   handleTopicSubscriptions(): void {
     this.mqttClient.subscribe("sensor/humidity");
-  }
-}
-
-class TemperatureMqttConnection extends MqttConnection {
-  handleTopicSubscriptions(): void {
     this.mqttClient.subscribe("sensor/temperature");
   }
 }
 
-const humidityConnection = new HumidityMqttConnection(
-  "My Humidity Data over Websocket",
+const customConnection = new CustomMqttConnection(
+  "My custom sensor data over websocket",
   "ws://localhost:8083/mqtt",
-  new ApexCharts(document.querySelector("#humidityChart"), humiditySettings)
-);
-
-const temperatureConnection = new TemperatureMqttConnection(
-  "My Temperature Data over Websocket",
-  "ws://localhost:8083/mqtt",
-  new ApexCharts(
-    document.querySelector("#temperatureChart"),
-    temperatureSettings
-  )
+  new ApexCharts(document.querySelector("#sensorChart"), chartSettings)
 );
 
 const connection: MqttConnection[] = [];
-connection.push(humidityConnection);
-connection.push(temperatureConnection);
+connection.push(customConnection);
 
 connection.forEach((conn) => {
   conn.renderChart();
