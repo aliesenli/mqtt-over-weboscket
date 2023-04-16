@@ -5,7 +5,14 @@
 
 In this project I used a MQTT broker (`EMQX`). For getting Temperature and Humidity data, I used an Arduino with `DHT11` sensor. The data is read through Serialport and published to the MQTT broker running on a docker container. On the clientside the data is read over `Websocket` by subscribing to the MQTT Topic(s). 
 
+EMQX Dashboard
+
 <img src="https://github.com/aliesenli/mqttemperature/blob/main/doc/emqx-dashboard.png">
+
+
+Arduino scheme
+
+<img src="https://github.com/aliesenli/mqtt-over-websocket/blob/develop/doc/sensor.png">
 
 #### Prerequisites
 - Linux Machine (Mapping serialports on docker containers works like a charm)
