@@ -12,7 +12,7 @@ EMQX Dashboard
 
 Arduino scheme
 
-<img src="https://github.com/aliesenli/mqtt-over-websocket/blob/develop/doc/sensor.png">
+<img src="https://github.com/aliesenli/mqtt-over-websocket/blob/main/doc/sensor.png">
 
 #### Prerequisites
 - Linux Machine (Mapping serialports on docker containers works like a charm)
