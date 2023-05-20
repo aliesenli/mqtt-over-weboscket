@@ -1,17 +1,54 @@
 import { IPublishPacket, MqttClient, connect as mqttConnect } from "mqtt";
 import * as ApexCharts from "apexcharts";
 import { chartSettings } from "./settings/chartSettings";
+import { BehaviorSubject, combineLatest } from "rxjs";
 
-interface IMqttConnectionHandler {
-  handleSensorData(): void;
-  subscribeAllTopics(): void;
-  renderChart(): void;
+const availableTopics: ITopicData[] = [
+  { device: "DHT11", topic: "sensor/temperature" },
+  { device: "DHT11", topic: "sensor/humidity" },
+];
+
+const humidityObservable = new BehaviorSubject<ISensorData[]>([
+  {
+    type: "Humidity",
+    value: 55,
+    timestamp: Math.floor(new Date().getTime() / 1000.0) - 10,
+  },
+  {
+    type: "Humidity",
+    value: 60,
+    timestamp: Math.floor(new Date().getTime() / 1000.0) - 5,
+  },
+]);
+
+const temperatureObservable = new BehaviorSubject<ISensorData[]>([
+  {
+    type: "Temperature",
+    value: 25,
+    timestamp: Math.floor(new Date().getTime() / 1000.0) - 10,
+  },
+  {
+    type: "Temperature",
+    value: 27,
+    timestamp: Math.floor(new Date().getTime() / 1000.0) - 5,
+  },
+]);
+
+interface ITopicData {
+  device: string;
+  topic: string;
 }
 
 interface ISensorData {
-  type: number;
+  type: string;
   value: number;
   timestamp: number;
+}
+
+interface IMqttConnectionHandler {
+  subscribeAllTopics(topics: ITopicData[]): void;
+  handleSensorData(): void;
+  renderChart(): void;
 }
 
 abstract class MqttConnection implements IMqttConnectionHandler {
@@ -27,53 +64,47 @@ abstract class MqttConnection implements IMqttConnectionHandler {
     this.chart = chart;
   }
 
-  public subscribeAllTopics(): void {
-    this.mqttClient.subscribe("sensor/temperature")
-    this.mqttClient.subscribe("sensor/humidity")
+  public subscribeAllTopics(topics: ITopicData[]): void {
+    topics.forEach((data) => {
+      this.mqttClient.subscribe(data.topic);
+    });
   }
 
   public handleSensorData(): void {
-    const sensorData: ISensorData[][] = [[], []];
-
     this.mqttClient.on(
       "message",
       (topic: string, _message: Buffer, packet: IPublishPacket) => {
         console.log(`${topic} ${packet.payload}`);
 
         switch (topic) {
-          case 'sensor/temperature':
-            sensorData[0].push({
+          case "sensor/temperature":
+            const temperatureData: ISensorData = {
               type: JSON.parse(packet.payload.toString("utf-8")).type,
               timestamp: JSON.parse(packet.payload.toString("utf-8")).timestamp,
-              value: Math.floor(JSON.parse(packet.payload.toString("utf-8")).value)
-            })
+              value: Math.floor(
+                JSON.parse(packet.payload.toString("utf-8")).value
+              ),
+            };
 
+            temperatureObservable.next(
+              temperatureObservable.value.concat(temperatureData)
+            );
             break;
 
-          case 'sensor/humidity':
-            sensorData[1].push({
+          case "sensor/humidity":
+            const humidityData: ISensorData = {
               type: JSON.parse(packet.payload.toString("utf-8")).type,
               timestamp: JSON.parse(packet.payload.toString("utf-8")).timestamp,
-              value: Math.floor(JSON.parse(packet.payload.toString("utf-8")).value)
-            })
+              value: Math.floor(
+                JSON.parse(packet.payload.toString("utf-8")).value
+              ),
+            };
 
+            humidityObservable.next(
+              humidityObservable.value.concat(humidityData)
+            );
             break;
         }
-
-        this.chart.updateSeries([
-          {
-            data: sensorData[0].map((item) => ({
-              x: item.timestamp,
-              y: item.value
-            }))
-          },
-          {
-            data: sensorData[1].map((item) => ({
-              x: item.timestamp,
-              y: item.value
-            }))
-          }
-        ]);
       }
     );
   }
@@ -85,19 +116,19 @@ abstract class MqttConnection implements IMqttConnectionHandler {
 
 class CustomMqttConnection extends MqttConnection {
   subscribeTemperatureTopic(): void {
-    this.mqttClient.subscribe("sensor/temperature")
+    this.mqttClient.subscribe("sensor/temperature");
   }
 
   unsubscribeTemperatureTopic(): void {
-    this.mqttClient.unsubscribe("sensor/temperature")
+    this.mqttClient.unsubscribe("sensor/temperature");
   }
 
   subscribeHumiditiyTopic(): void {
-    this.mqttClient.subscribe("sensor/humidity")
+    this.mqttClient.subscribe("sensor/humidity");
   }
 
   unsubscribeHumiditiyTopic(): void {
-    this.mqttClient.unsubscribe("sensor/humidity")
+    this.mqttClient.unsubscribe("sensor/humidity");
   }
 }
 
@@ -107,31 +138,55 @@ const customConnection = new CustomMqttConnection(
   new ApexCharts(document.querySelector("#sensorChart"), chartSettings)
 );
 
-const connection: MqttConnection[] = [];
-connection.push(customConnection);
+const connections: MqttConnection[] = [];
+connections.push(customConnection);
 
-connection.forEach((conn) => {
-  conn.renderChart();
-  conn.subscribeAllTopics();
-  conn.handleSensorData();
+connections.forEach((connection) => {
+  connection.subscribeAllTopics(availableTopics);
+  connection.handleSensorData();
+  connection.renderChart();
+
+  combineLatest([temperatureObservable, humidityObservable]).subscribe(
+    ([temperatureData, humidityData]) => {
+      // Trim the arrays to a maximum length
+      const maxLength = 10;
+      const trimmedTemperatureData = temperatureData.slice(-maxLength);
+      const trimmedHumidityData = humidityData.slice(-maxLength);
+
+      connection.chart.updateSeries([
+        {
+          data: trimmedTemperatureData.map((item) => ({
+            x: item.timestamp,
+            y: item.value,
+          })),
+        },
+        {
+          data: trimmedHumidityData.map((item) => ({
+            x: item.timestamp,
+            y: item.value,
+          })),
+        },
+      ]);
+    }
+  );
 });
 
-const temperatureSubBox = document.getElementById('temperatureSubscription');
-temperatureSubBox?.addEventListener('change', (e: Event) => {
-  const event = e.target as HTMLInputElement
+const temperatureSubBox = document.getElementById("temperatureSubscription");
+temperatureSubBox?.addEventListener("change", (e: Event) => {
+  const event = e.target as HTMLInputElement;
   if (event.checked) {
     customConnection.subscribeTemperatureTopic();
   } else {
     customConnection.unsubscribeTemperatureTopic();
   }
-})
+});
 
-const humiditySubBox = document.getElementById('humiditySubscription');
-humiditySubBox?.addEventListener('change', (e: Event) => {
-  const event = e.target as HTMLInputElement
+const humiditySubBox = document.getElementById("humiditySubscription");
+humiditySubBox?.addEventListener("change", (e: Event) => {
+  const event = e.target as HTMLInputElement;
   if (event.checked) {
     customConnection.subscribeHumiditiyTopic();
   } else {
     customConnection.unsubscribeHumiditiyTopic();
   }
-})
+});
